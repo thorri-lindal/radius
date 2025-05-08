@@ -142,18 +142,18 @@
     </div>
   </div>
 
-  <script> // skrifta byrjar
+  <script>
     let port, writer;
     let recording = false;
     let playback = false;
-    let movementData = []; //hreinsum hreyfigögn þegar forrit er kveikt
+    let movementData = [];
     let playbackIndex = 0;
-    let playbackSpeed = 5; //afspilunar hraði byrjar í 5 (af 10)
-    let joystickSpeed = 2; //hraðinn á stýripinna byrjar í 2
+    let playbackSpeed = 5;
+    let joystickSpeed = 2;
     let gamepad = null;
-    let gamepadConnected = false; //byrjar ótengdur
-    let horizontalClawMode = false; //byrjar í venjulegum ham
-    let lastGamepadState = { //grunnstillir alla takka á stýripinna
+    let gamepadConnected = false;
+    let horizontalClawMode = false;
+    let lastGamepadState = { 
       dpadUp: false,
       dpadDown: false,
       dpadLeft: false,
@@ -167,7 +167,7 @@
     };
     let controllerInterval = null;
 
-    const joints = [ //stillir liði á arminum
+    const joints = [
       { id: "base", label: "Grunnsnúningur", min: 0, max: 180, value: 98 },
       { id: "shoulder", label: "(öxl)", min: 0, max: 180, value: 97 },
       { id: "elbow", label: "Olnbogi", min: 0, max: 180, value: 116 },
@@ -176,10 +176,8 @@
       { id: "claw", label: "Kló", min: 0, max: 180, value: 64 }
     ];
 
-    // upprunaleg staða arms, svo hægt sé að fara í hana þegar skipt er um ham
     const originalPosition = joints.map(joint => joint.value);
     
-    // Upprunastaða fyrir kló þegar skipt er yfir í ðhorizontal' ham
     const horizontalClawPosition = [98, 97, 116, 90, 93, 64];
 
     const slidersDiv = document.getElementById("sliders");
@@ -196,7 +194,7 @@
         </div>
       `;
     });
-    //stillir canvas sem 2D port
+
     const canvas = document.getElementById("armCanvas");
     const ctx = canvas.getContext("2d");
 
@@ -207,19 +205,16 @@
     
     function toggleHorizontalClawMode() {
       horizontalClawMode = !horizontalClawMode;
-      
-      // Update mode indicators
+ 
       document.getElementById("normalMode").classList.toggle("active-mode", !horizontalClawMode);
       document.getElementById("horizontalMode").classList.toggle("active-mode", horizontalClawMode);
       
       if (horizontalClawMode) {
-        // Switch to horizontal claw position
         updateSliders(horizontalClawPosition);
         sendSerialData(horizontalClawPosition);
         drawArm(horizontalClawPosition);
         if (recording) movementData.push([...horizontalClawPosition]);
       } else {
-        // Return to original position
         const currentValues = joints.map(joint => parseInt(document.getElementById(joint.id).value));
         updateSliders(currentValues);
         sendSerialData(currentValues);
@@ -227,12 +222,10 @@
         if (recording) movementData.push([...currentValues]);
       }
     }
-    
-    // Fall sem færir arm í upprunalega stöðu
+
     function resetToOriginalPosition() {
-      if (playback) return; // kemur í veg fyrir að ef það er afspilun í gangi að þetta keyri ekki upprunalega stöðu armsins.
-      
-      horizontalClawMode = false; //Byrjar í venjulegum ham
+      if (playback) return;
+      horizontalClawMode = false;
       document.getElementById("normalMode").classList.add("active-mode");
       document.getElementById("horizontalMode").classList.remove("active-mode");
       
@@ -288,14 +281,12 @@
 
     function updateControllerInput() {
       if (!gamepadConnected) return;
-      
-      // Update the gamepad state
+
       const gamepads = navigator.getGamepads();
       if (!gamepads[gamepad.index]) return;
       
       gamepad = gamepads[gamepad.index];
-      
-      // Hringur kveikir á upptöku og slekkur á henni.
+
       if (gamepad.buttons[1].pressed && !lastGamepadState.circle) {
         if (recording) {
           stopRecording();
@@ -303,25 +294,20 @@
           startRecording();
         }
       }
-      
-      // Square (button 0) - Byrjar afspilun
+
       if (gamepad.buttons[0].pressed && !lastGamepadState.square && !recording && movementData.length > 0 && !playback) {
         playBack();
       }
-      
-      // Triangle (button 2) - Endurstillir arm í upprunalega stöðu sína
+
       if (gamepad.buttons[2].pressed && !lastGamepadState.triangle && !playback) {
         resetToOriginalPosition();
       }
-      
-      // L1 (button 4) - Toggle horizontal claw mode
+
       if (gamepad.buttons[4].pressed && !lastGamepadState.L1 && !playback) {
         toggleHorizontalClawMode();
       }
-      
-      // Skip the rest of the controls during playback
+    
       if (playback) {
-        // Uppfærir stöðu hnappanna á stýripinnanum
         lastGamepadState = {
           dpadUp: gamepad.buttons[12].pressed,
           dpadDown: gamepad.buttons[13].pressed,
@@ -334,96 +320,65 @@
         };
         return;
       }
-      
-      // Fær núverandi gildi á stöðunum á limum
+
       let currentValues = joints.map(joint => parseInt(document.getElementById(joint.id).value));
-      
-      // Claw control with D-pad up/down (buttons 12/13)
-      const dpadSpeed = gamepad.buttons[5].pressed ? 3 : 1; // Þegar ýtt er á R1 og haldið inni fer armurinn hraðar, sem við plúsum svo við hreyfinguna.
+
+      const dpadSpeed = gamepad.buttons[5].pressed ? 3 : 1;
       
       if (gamepad.buttons[12].pressed) {
-        // D-pad Up - open claw
         currentValues[5] = Math.min(currentValues[5] + dpadSpeed, joints[5].max);
       }
       
       if (gamepad.buttons[13].pressed) {
-        // D-pad Down - close claw
         currentValues[5] = Math.max(currentValues[5] - dpadSpeed, joints[5].min);
       }
-      
-      // Base rotation with D-pad left/right (buttons 14/15)
-      // Now moves continuously while held
+
       if (gamepad.buttons[14].pressed) {
-        // D-pad Left - rotate base left
         currentValues[0] = Math.max(currentValues[0] - dpadSpeed, joints[0].min);
       }
       
       if (gamepad.buttons[15].pressed) {
-        // D-pad Right - rotate base right
         currentValues[0] = Math.min(currentValues[0] + dpadSpeed, joints[0].max);
       }
       
-      // Left joystick (axes 0,1) - control shoulder and elbow with inverse kinematics-like behavior
-      // Check if R1 is pressed for speed boost
       const speedMultiplier = gamepad.buttons[5].pressed ? 3.0 : 1.0;
       const effectiveJoystickSpeed = joystickSpeed * speedMultiplier;
-      
-      // Get the left joystick input
+
       const leftJoystickX = Math.abs(gamepad.axes[0]) > 0.2 ? gamepad.axes[0] : 0;
       const leftJoystickY = Math.abs(gamepad.axes[1]) > 0.2 ? gamepad.axes[1] : 0;
       
       if (leftJoystickX !== 0 || leftJoystickY !== 0) {
-        // Apply both shoulder and elbow changes based on joystick direction
-        // Moving forward/back (Y-axis)
+
         if (leftJoystickY !== 0) {
-          // Forward/backward movement changes both joints
-          // Up on joystick (negative Y) raises the arm by decreasing shoulder and increasing elbow
-          // Down on joystick (positive Y) lowers the arm by increasing shoulder and decreasing elbow
           currentValues[1] = Math.max(Math.min(currentValues[1] - leftJoystickY * 1.8 * effectiveJoystickSpeed, joints[1].max), joints[1].min);
           currentValues[2] = Math.max(Math.min(currentValues[2] + leftJoystickY * 1.5 * effectiveJoystickSpeed, joints[2].max), joints[2].min);
         }
-        
-        // Moving side to side (X-axis)
+
         if (leftJoystickX !== 0) {
-          // Left/right movement changes both joints in opposite directions to extend/retract
-          // Right on joystick (positive X) extends arm by decreasing shoulder and increasing elbow
-          // Left on joystick (negative X) retracts arm by increasing shoulder and decreasing elbow
           currentValues[1] = Math.max(Math.min(currentValues[1] + leftJoystickX * 1.3 * effectiveJoystickSpeed, joints[1].max), joints[1].min);
           currentValues[2] = Math.max(Math.min(currentValues[2] + leftJoystickX * 1.8 * effectiveJoystickSpeed, joints[2].max), joints[2].min);
         }
       }
-      
-      // Right joystick (axes 2,3) - control wrist rotation and bend
-      // Apply the same speed multiplier for R1 button
+
       if (Math.abs(gamepad.axes[2]) > 0.2) {
-        // X-axis for wrist rotation (olnbogi snúningur)
         currentValues[3] = Math.max(Math.min(currentValues[3] + gamepad.axes[2] * 1.5 * effectiveJoystickSpeed, joints[3].max), joints[3].min);
       }
       
       if (Math.abs(gamepad.axes[3]) > 0.2) {
-        // Y-axis for wrist bend (úlnliður beygja)
+
         currentValues[4] = Math.max(Math.min(currentValues[4] - gamepad.axes[3] * 1.5 * effectiveJoystickSpeed, joints[4].max), joints[4].min);
       }
-      
-      // In horizontal claw mode, automatically adjust the wrist to keep the claw level
+
       if (horizontalClawMode) {
-        // Calculate how much we need to adjust the wrist to keep the claw level
-        // This is based on the shoulder and elbow angles
+
         const shoulderDeg = parseInt(document.getElementById("shoulder").value);
         const elbowDeg = parseInt(document.getElementById("elbow").value);
-        
-        // Basic formula to keep the claw level - the wrist compensates for shoulder and elbow
-        // We want wristBend to be such that the claw is always horizontal
-        // Total angle: shoulder + elbow + wrist = 180° (when level)
-        // So wrist = 360 - shoulder - elbow
+
         currentValues[4] = 360 - shoulderDeg - elbowDeg;
-        
-        // Clamp to valid range
+
         currentValues[4] = Math.max(Math.min(currentValues[4], joints[4].max), joints[4].min);
       }
-      
-      // Update lastGamepadState
-      //uppfærir síðustu stöðu á stýripinna
+
       lastGamepadState = {
         dpadUp: gamepad.buttons[12].pressed,
         dpadDown: gamepad.buttons[13].pressed,
@@ -533,47 +488,36 @@
       const [base, shoulder, elbow, wristRotate, wristBend, claw] = values.map(v => parseInt(v));
       
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Center point and dimensions
+
       const centerX = canvas.width / 2;
       const baseY = 350;
       const armWidth = 15;
-      
-      // Segment lengths
+
       const baseHeight = 40;
       const shoulderLength = 100;
       const elbowLength = 80;
-      const wristLength = 40; // Adding a short wrist section 
+      const wristLength = 40;
       const clawLength = 25;
-      
-      // Convert degrees to radians
+
       const rad = deg => deg * Math.PI / 180;
-      
-      // Base rotation (around Y axis) - correct mirroring by inverting the angle
-      const baseAngle = rad(-(base - 90)); // 0-180 degrees where 90 is center, now mirrored
-      
-      // Draw base
+
+      const baseAngle = rad(-(base - 90)); 
+
       ctx.fillStyle = "#666";
       ctx.fillRect(centerX - 30, baseY - baseHeight, 60, baseHeight);
-      
-      // Calculate base position (top of the base)
+
       const baseX = centerX;
       const baseTopY = baseY - baseHeight;
-      
-      // Base rotation point position
+
       const baseJointX = baseX + Math.cos(baseAngle) * 0;
       const baseJointY = baseTopY;
-      
-      // Shoulder angle (0 is straight up, 180 is straight down)
-      // Invert the shoulder angle (180-shoulder) to match real behavior
+
       const shoulderAngle = rad(180 - shoulder);
-      
-      // Calculate shoulder end position
+
       const shoulderEndX = baseJointX + Math.sin(baseAngle) * Math.sin(shoulderAngle) * shoulderLength;
       const shoulderEndY = baseJointY - Math.cos(shoulderAngle) * shoulderLength;
       const shoulderEndZ = Math.cos(baseAngle) * Math.sin(shoulderAngle) * shoulderLength;
-      
-      // Draw shoulder segment with perspective
+
       const shoulderWidth = armWidth * (1 - Math.abs(shoulderEndZ) / 200);
       
       ctx.beginPath();
@@ -583,24 +527,18 @@
       ctx.moveTo(baseJointX, baseJointY);
       ctx.lineTo(shoulderEndX, shoulderEndY);
       ctx.stroke();
-      
-      // Elbow angle (0 is straight, 180 is fully bent)
-      // Invert the elbow angle (180-elbow) to match real behavior
+
       const elbowAngle = rad(180 - elbow);
-      const totalArmAngle = shoulderAngle + elbowAngle - Math.PI; // Adjust to make 90 straight
+      const totalArmAngle = shoulderAngle + elbowAngle - Math.PI;
       
-      // For visualization of elbow rotation
-      const elbowRotationRad = rad(wristRotate - 90); // This is olnbogi snúningur
+      const elbowRotationRad = rad(wristRotate - 90);
       
-      // Calculate elbow end position
       const elbowEndX = shoulderEndX + Math.sin(baseAngle) * Math.sin(totalArmAngle) * elbowLength;
       const elbowEndY = shoulderEndY - Math.cos(totalArmAngle) * elbowLength;
       const elbowEndZ = shoulderEndZ + Math.cos(baseAngle) * Math.sin(totalArmAngle) * elbowLength;
-      
-      // Draw elbow segment with perspective and show rotation
+
       const elbowWidth = armWidth * (1 - Math.abs(elbowEndZ) / 200);
       
-      // Draw a circle to represent the elbow joint rotation
       ctx.beginPath();
       ctx.arc(shoulderEndX, shoulderEndY, 12, 0, Math.PI * 2);
       ctx.fillStyle = "#33aa33";
@@ -610,8 +548,7 @@
       ctx.strokeStyle = "#000";
       ctx.lineWidth = 1;
       ctx.stroke();
-      
-      // Draw a line to indicate the elbow rotation angle
+
       ctx.beginPath();
       ctx.moveTo(shoulderEndX, shoulderEndY);
       ctx.lineTo(
@@ -621,8 +558,7 @@
       ctx.strokeStyle = "#f00";
       ctx.lineWidth = 2;
       ctx.stroke();
-      
-      // Draw the elbow segment
+
       ctx.beginPath();
       ctx.lineWidth = elbowWidth;
       ctx.strokeStyle = "#33aa33";
@@ -630,27 +566,21 @@
       ctx.lineTo(elbowEndX, elbowEndY);
       ctx.stroke();
       
-      // Wrist bend angle (úlniður beygja) - correctly orient up/down
       const wristAngle = rad(180 - wristBend);
       
-      // Calculate wrist direction with correct elbow rotation and wrist bend
-      const wristBaseAngle = totalArmAngle - Math.PI / 2; // Start perpendicular to arm
-      
-      // Apply wrist bend to get final wrist angle
+      const wristBaseAngle = totalArmAngle - Math.PI / 2;
+
       const totalWristAngle = wristBaseAngle + wristAngle;
       
-      // Calculate wrist end position
       const wristEndX = elbowEndX + Math.sin(baseAngle) * Math.sin(totalWristAngle) * wristLength;
       const wristEndY = elbowEndY - Math.cos(totalWristAngle) * wristLength;
       const wristEndZ = elbowEndZ + Math.cos(baseAngle) * Math.sin(totalWristAngle) * wristLength;
       
-      // Draw wrist with correct rotation
       ctx.save();
       ctx.translate(elbowEndX, elbowEndY);
-      ctx.rotate(elbowRotationRad); // Rotate context based on olnbogi snúningur
-      ctx.rotate(wristAngle); // Apply wrist bend
+      ctx.rotate(elbowRotationRad);
+      ctx.rotate(wristAngle);
       
-      // Draw wrist after rotation
       ctx.beginPath();
       ctx.lineWidth = elbowWidth - 2;
       ctx.strokeStyle = "#cc6633";
@@ -658,10 +588,8 @@
       ctx.lineTo(0, -wristLength);
       ctx.stroke();
       
-      // Draw claw with current rotation
       const clawOpening = (180 - claw) / 180 * Math.PI / 3;
       
-      // Left claw
       ctx.beginPath();
       ctx.lineWidth = Math.max(2, elbowWidth - 3);
       ctx.strokeStyle = "#cc3333";
@@ -669,7 +597,6 @@
       ctx.lineTo(-Math.sin(clawOpening) * clawLength, -wristLength - Math.cos(clawOpening) * clawLength);
       ctx.stroke();
       
-      // Right claw
       ctx.beginPath();
       ctx.lineWidth = Math.max(2, elbowWidth - 3);
       ctx.strokeStyle = "#cc3333";
@@ -679,7 +606,6 @@
       
       ctx.restore();
       
-      // Draw joints
       const jointPositions = [
         {x: baseJointX, y: baseJointY, size: 10, color: "#444"},
         {x: shoulderEndX, y: shoulderEndY, size: 8, color: "#3366cc"},
@@ -710,22 +636,6 @@
       ctx.lineWidth = 2;
       ctx.stroke();
       
-      // Display joint angles
-      ctx.fillStyle = "#000";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "left";
-      ctx.fillText(`Base: ${base}°`, 10, 20);
-      ctx.fillText(`Shoulder: ${shoulder}°`, 10, 40);
-      ctx.fillText(`Elbow: ${elbow}°`, 10, 60);
-      ctx.fillText(`Olnbogi Snúningur: ${wristRotate}°`, 10, 80);
-      ctx.fillText(`Úlnliður Beygja: ${wristBend}°`, 10, 100);
-      ctx.fillText(`Claw: ${claw}°`, 10, 120);
-      
-      // Display the current mode
-      ctx.fillStyle = horizontalClawMode ? "#006400" : "#000";
-      ctx.font = "12px Arial";
-      ctx.textAlign = "left";
-      ctx.fillText(`Mode: ${horizontalClawMode ? "Horizontal Claw (Level)" : "Normal"}`, 10, 140);
     }
 
     window.onload = function() {
